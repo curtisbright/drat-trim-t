@@ -779,10 +779,33 @@ int verify (struct solver *S, int begin, int end) {
   int adds = 0;
   int active = S->nClauses;
 
+  double max = (double) S->nStep;
+  struct timeval forward_time;
+  gettimeofday (&forward_time, NULL);
   for (step = 0; step < S->nStep; step++) {
     if (step >= begin && step < end) continue;
     long ad = S->proof[step]; long d = ad & 1;
     int *lemmas = S->DB + (ad >> INFOBITS);
+
+    struct timeval current_time;
+    gettimeofday (&current_time, NULL);
+    int seconds = (int) (current_time.tv_sec - S->start_time.tv_sec);
+    if ((seconds > S->timeout) && (S->optimize == 0)) printf ("s TIMEOUT\n"), exit (0);
+
+    if (S->bar)
+      if (((step+1) % 1000) == (S->nStep % 1000)) {
+        int f;
+        long runtime = (current_time.tv_sec  - forward_time.tv_sec ) * 1000000 +
+                       (current_time.tv_usec - forward_time.tv_usec);
+        double time = (double) (runtime / 1000000.0);
+        double fraction = ((step+1) * 1.0) / max;
+        printf("\rc %.2f%% [", 100.0 * (fraction));
+        for (f = 1; f <= 20; f++) {
+          if ((fraction) * 20.0 < 1.0 * f) printf(" ");
+          else printf("="); }
+        printf("] time remaining: %.2f seconds ", time / (fraction) - time); }
+      if (step+1 == max) printf("\n");
+        fflush (stdout);
 
     S->time = lemmas[ID];
     if (d) { active--; }
@@ -901,7 +924,7 @@ int verify (struct solver *S, int begin, int end) {
 
   int checked = 0, skipped = 0;
 
-  double max = (double) adds;
+  /*double*/ max = (double) adds;
 
   struct timeval backward_time;
   gettimeofday (&backward_time, NULL);

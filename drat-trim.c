@@ -26,7 +26,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 //#define PARTIALPROOF
 
-#define TIMEOUT     40000
+//#define TIMEOUT     40000
 #define BIGINIT     1000000
 #define INIT        4
 #define END         0
@@ -56,7 +56,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 #define COMPRESS
 
 struct solver { FILE *inputFile, *proofFile, *lratFile, *traceFile, *activeFile;
-    int *DB, nVars, timeout, mask, delete, *falseStack, *falseA, *forced, binMode, optimize, binOutput,
+    int *DB, nVars, /*timeout,*/ mask, delete, *falseStack, *falseA, *forced, binMode, optimize, binOutput,
       *processed, *assigned, count, *used, *max, COREcount, RATmode, RATcount, nActive, *lratTable,
       nLemmas, maxRAT, *preRAT, maxDependencies, nDependencies, bar, backforce, reduce,
       *dependencies, maxVar, maxSize, mode, verb, unitSize, unitStackSize, prep, *current, nRemoved, warning,
@@ -790,7 +790,7 @@ int verify (struct solver *S, int begin, int end) {
     struct timeval current_time;
     gettimeofday (&current_time, NULL);
     int seconds = (int) (current_time.tv_sec - S->start_time.tv_sec);
-    if ((seconds > S->timeout) && (S->optimize == 0)) printf ("s TIMEOUT\n"), exit (0);
+    //if ((seconds > S->timeout) && (S->optimize == 0)) printf ("s TIMEOUT\n"), exit (0);
 
     if (S->bar)
       if (((step+1) % 1000) == (S->nStep % 1000)) {
@@ -932,7 +932,7 @@ int verify (struct solver *S, int begin, int end) {
     struct timeval current_time;
     gettimeofday (&current_time, NULL);
     int seconds = (int) (current_time.tv_sec - S->start_time.tv_sec);
-    if ((seconds > S->timeout) && (S->optimize == 0)) printf ("s TIMEOUT\n"), exit (0);
+    //if ((seconds > S->timeout) && (S->optimize == 0)) printf ("s TIMEOUT\n"), exit (0);
 
     if (S->bar)
       if ((adds % 1000) == 0) {
@@ -1380,7 +1380,7 @@ void printHelp ( ) {
   printf ("  -l LEMMAS   prints the core lemmas to the file LEMMAS (DRAT format)\n");
   printf ("  -L LEMMAS   prints the core lemmas to the file LEMMAS (LRAT format)\n");
   printf ("  -r TRACE    resolution graph in the TRACE file (TRACECHECK format)\n\n");
-  printf ("  -t <lim>    time limit in seconds (default %i)\n", TIMEOUT);
+  //printf ("  -t <lim>    time limit in seconds (default %i)\n", TIMEOUT);
   printf ("  -u          default unit propatation (i.e., no core-first)\n");
   printf ("  -f          forward mode for UNSAT\n");
   printf ("  -v          more verbose output\n");
@@ -1410,7 +1410,7 @@ int main (int argc, char** argv) {
   S.lemmaStr   = NULL;
   S.lratFile   = NULL;
   S.traceFile  = NULL;
-  S.timeout    = TIMEOUT;
+  //S.timeout    = TIMEOUT;
   S.nReads     = 0;
   S.nWrites    = 0;
   S.mask       = 0;
@@ -1437,7 +1437,7 @@ int main (int argc, char** argv) {
       else if (argv[i][1] == 'l') S.lemmaStr   = argv[++i];
       else if (argv[i][1] == 'L') S.lratFile   = fopen (argv[++i], "w");
       else if (argv[i][1] == 'r') S.traceFile  = fopen (argv[++i], "w");
-      else if (argv[i][1] == 't') S.timeout    = atoi (argv[++i]);
+      //else if (argv[i][1] == 't') S.timeout    = atoi (argv[++i]);
       else if (argv[i][1] == 'b') S.bar        = 1;
       else if (argv[i][1] == 'B') S.backforce  = 1;
       else if (argv[i][1] == 'O') S.optimize   = 1;
@@ -1522,7 +1522,7 @@ int main (int argc, char** argv) {
   printf ("\rc verification time: %.3f seconds\n", (double) (runtime / 1000000.0));
 
   if (S.optimize) {
-    printf("c proof optimization started (ignoring the timeout)\n");
+    printf("c proof optimization started\n");
     int iteration = 1;
     while (S.nRemoved && iteration < 10000) {
       deactivate (&S);

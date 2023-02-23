@@ -60,7 +60,7 @@ struct solver { FILE *inputFile, *proofFile, *lratFile, *traceFile, *activeFile;
       *processed, *assigned, count, *used, *max, COREcount, RATmode, RATcount, nActive, *lratTable,
       nLemmas, maxRAT, *preRAT, maxDependencies, nDependencies, bar, backforce, reduce,
       *dependencies, maxVar, maxSize, mode, verb, unitSize, unitStackSize, prep, *current, nRemoved, warning,
-      delProof, *setMap, *setTruth;
+      delProof, *setMap, *setTruth, *skip, *optproofskip;
     char *coreStr, *lemmaStr;
     struct timeval start_time;
     long mem_used, time, nClauses, nStep, nOpt, nAlloc, *unitStack, *reason, lemmas, nResolve, *RATset,
@@ -319,6 +319,7 @@ void printProof (struct solver *S) {
     if (S->nOpt > S->nAlloc) {
       S->nAlloc = S->nOpt;
       S->proof = (long*) realloc (S->proof, sizeof (long) * S->nAlloc);
+      S->skip = (int*) realloc (S->skip, sizeof (int) * S->nAlloc);
       if (S->proof == NULL) { printf("c MEMOUT: reallocation of proof list failed\n"); exit (0); } }
     S->nStep   = 0;
     S->nLemmas = 0;
@@ -327,6 +328,7 @@ void printProof (struct solver *S) {
       int *lemmas = S->DB + (ad >> INFOBITS);
       if ((ad & 1) == 0) S->nLemmas++;
 //      if (lemmas[ID] & ACTIVE) lemmas[ID] ^= ACTIVE; // only useful for checking multiple times?
+      S->skip[S->nStep] = S->optproofskip[step];
       S->proof[S->nStep++] = S->optproof[step]; } }  // why not reuse ad?
 
   if (S->lemmaStr) {
@@ -338,8 +340,10 @@ void printProof (struct solver *S) {
       if (S->binOutput) {
         S->nWrites++;
         if (ad & 1) fputc ('d', lemmaFile);
+        else if (S->skip[step]) fputc ('t', lemmaFile);
         else        fputc ('a', lemmaFile); }
       else if (ad & 1) fprintf (lemmaFile, "d ");
+      else if (S->skip[step]) fprintf (lemmaFile, "t ");
       int reslit = lemmas[PIVOT];
       while (*lemmas) {
         int lit = *lemmas++;
@@ -771,6 +775,24 @@ int verify (struct solver *S, int begin, int end) {
   int step;
   int adds = 0;
   int active = S->nClauses;
+
+  const int finalconfstep = S->nStep-2;
+
+  if (S->skip[finalconfstep])
+  {  printf("c Ensuring final conflict is not from a trusted addition\n");
+     for(step = finalconfstep; ; step--)
+     { printf("c Swapping steps %d and %d\n", step, step-1);
+       const long tmp = S->proof[step];
+       S->proof[step] = S->proof[step-1];
+       S->proof[step-1] = tmp;
+       const int tmp2 = S->skip[step];
+       S->skip[step] = S->skip[step-1];
+       S->skip[step-1] = tmp2;
+       if(!(S->proof[step] & 1) && !((S->DB+(S->proof[step]>>INFOBITS))[1]==0))
+         break;
+     }
+  }
+
   for (step = 0; step < S->nStep; step++) {
     if (step >= begin && step < end) continue;
     long ad = S->proof[step]; long d = ad & 1;
@@ -818,7 +840,7 @@ int verify (struct solver *S, int begin, int end) {
 
     if (d && S->mode == FORWARD_SAT) {
       if (size == -1) propagateUnits (S, 0);  // necessary?
-      if (redundancyCheck (S, lemmas, size, 1) == FAILED)  {
+      if (!S->skip[step] && redundancyCheck (S, lemmas, size, 1) == FAILED)  {
         printf ("c failed at proof line %i (modulo deletion errors)\n", step + 1);
         return SAT; }
       continue; }
@@ -826,7 +848,8 @@ int verify (struct solver *S, int begin, int end) {
     if (d == 0 && S->mode == FORWARD_UNSAT) {
       if (step > end) {
         if (size < 0) continue; // Fix of bus error: 10
-        if (redundancyCheck (S, lemmas, size, 1) == FAILED) {
+        if (size == 0 && S->skip[step]) goto start_verification;
+        if (!S->skip[step] && redundancyCheck (S, lemmas, size, 1) == FAILED) {
           printf ("c failed at proof line %i (modulo deletion errors)\n", step + 1);
           return SAT; }
 
@@ -946,10 +969,11 @@ int verify (struct solver *S, int begin, int end) {
     if (S->verb) {
       printf ("\rc validating clause (%i, %i):  ", clause[PIVOT], size); printClause (clause); }
 
-    if (redundancyCheck (S, clause, size, 1) == FAILED) {
+    if (!S->skip[step] && redundancyCheck (S, clause, size, 1) == FAILED) {
       printf ("c failed at proof line %i (modulo deletion errors)\n", step + 1);
       return SAT; }
     checked++;
+    S->optproofskip[S->nOpt] = S->skip[step];
     S->optproof[S->nOpt++] = ad; }
 
   postprocess (S);
@@ -1078,6 +1102,7 @@ int parse (struct solver* S) {
   S->nAlloc  = BIGINIT;
   S->formula = (long *) malloc (sizeof (long) * S->nClauses);
   S->proof   = (long *) malloc (sizeof (long) * S->nAlloc);
+  S->skip    = (int *) malloc (sizeof (int) * S->nAlloc);
   long **hashTable = (long**) malloc (sizeof (long*) * BIGINIT);
   int   *hashUsed  = (int * ) malloc (sizeof (int  ) * BIGINIT);
   int   *hashMax   = (int * ) malloc (sizeof (int  ) * BIGINIT);
@@ -1101,6 +1126,7 @@ int parse (struct solver* S) {
           int res = getc_unlocked (S->proofFile);
           if      (res == EOF) break;
           else if (res ==  97) del = 0;
+          else if (res == 116) { del = 0; S->skip[S->nStep] = 1; }
           else if (res == 100) del = 1;
           else {
             if (S->warning != NOWARNING) {
@@ -1108,9 +1134,12 @@ int parse (struct solver* S) {
             if (S->warning == HARDWARNING) exit (HARDWARNING); }
           S->nReads++; }
         else {
+          tmp = fscanf (S->proofFile, " t  %i ", &lit);
+          if(tmp > 0) { del = 0; S->skip[S->nStep] = 1; } // Skip verifying this clause
+          else {
           tmp = fscanf (S->proofFile, " d  %i ", &lit);
           if (tmp == EOF) break;
-          del = tmp > 0; } } }
+          del = tmp > 0; } } } }
 
     if (!lit) {
       if (!fileSwitchFlag) tmp = fscanf (S->inputFile, " %i ", &lit);  // Read a literal.
@@ -1182,6 +1211,7 @@ int parse (struct solver* S) {
             active--;
             if (S->nStep == S->nAlloc) { S->nAlloc = (S->nAlloc * 3) >> 1;
               S->proof = (long*) realloc (S->proof, sizeof (long) * S->nAlloc);
+              S->skip = (int*) realloc (S->skip, sizeof (int) * S->nAlloc);
 //              printf ("c proof allocation increased to %li\n", S->nAlloc);
               if (S->proof == NULL) { printf("c MEMOUT: reallocation of proof list failed\n"); exit (0); } }
             S->proof[S->nStep++] = (match << INFOBITS) + 1; }
@@ -1213,6 +1243,7 @@ int parse (struct solver* S) {
       else {
         if (S->nStep == S->nAlloc) { S->nAlloc = (S->nAlloc * 3) >> 1;
           S->proof = (long*) realloc (S->proof, sizeof (long) * S->nAlloc);
+          S->skip = (int*) realloc (S->skip, sizeof (int) * S->nAlloc);
 //        printf ("c proof allocation increased to %li\n", S->nAlloc);
         if (S->proof == NULL) { printf("c MEMOUT: reallocation of proof list failed\n"); exit (0); } }
         S->proof[S->nStep++] = (((long) (clause - S->DB)) << INFOBITS); }
@@ -1238,6 +1269,7 @@ int parse (struct solver* S) {
         printClause (clause);
         if (S->nStep == S->nAlloc) { S->nAlloc = (S->nAlloc * 3) >> 1;
           S->proof = (long*) realloc (S->proof, sizeof (long) * S->nAlloc);
+          S->skip = (int*) realloc (S->skip, sizeof (int) * S->nAlloc);
 //          printf ("c proof allocation increased to %li\n", S->nAlloc);
           if (S->proof == NULL) { printf("c MEMOUT: reallocation of proof list failed\n"); exit (0); } }
         S->proof[S->nStep++] = (((int) (clause - S->DB)) << INFOBITS) + 1; } } }
@@ -1267,6 +1299,7 @@ int parse (struct solver* S) {
   S->setTruth   = (int  *) malloc ((2 * n + 1) * sizeof (int )); S->setTruth += n; // Labels for variables, non-zero means false
 
   S->optproof   = (long *) malloc (sizeof(long) * (2 * S->nLemmas + S->nClauses));
+  S->optproofskip   = (int *) malloc (sizeof(int) * (2 * S->nLemmas + S->nClauses));
 
   S->maxRAT = INIT;
   S->RATset = (long*) malloc (sizeof (long) * S->maxRAT);
@@ -1302,6 +1335,7 @@ void freeMemory (struct solver *S) {
   free (S->reason);
   free (S->proof);
   free (S->formula);
+  free (S->skip);
   int i;
   for (i = 1; i <= S->maxVar; ++i) { free (S->wlist[i]); free (S->wlist[-i]); }
   free (S->used   - S->maxVar);
@@ -1414,7 +1448,7 @@ int main (int argc, char** argv) {
        if (S.binMode == 0) {
           c = getc_unlocked (S.proofFile); // check the first character in the file
           if (c == EOF) { S.binMode = 1; continue; }
-          if ((c != 13) && (c != 32) && (c != 45) && ((c < 48) || (c > 57)) && (c != 99) && (c != 100)) {
+          if ((c != 13) && (c != 32) && (c != 45) && ((c < 48) || (c > 57)) && (c != 99) && (c != 100) && (c != 116)) {
              printf ("\rc turning on binary mode checking\n");
              S.binMode = 1; }
           if (c != 99) comment = 0; }

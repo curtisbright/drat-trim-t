@@ -779,23 +779,6 @@ int verify (struct solver *S, int begin, int end) {
   int adds = 0;
   int active = S->nClauses;
 
-  const int finalconfstep = S->nStep-2;
-
-  if (S->skip[finalconfstep])
-  {  printf("c Ensuring final conflict is not from a trusted addition\n");
-     for(step = finalconfstep; ; step--)
-     { printf("c Swapping steps %d and %d\n", step, step-1);
-       const long tmp = S->proof[step];
-       S->proof[step] = S->proof[step-1];
-       S->proof[step-1] = tmp;
-       const int tmp2 = S->skip[step];
-       S->skip[step] = S->skip[step-1];
-       S->skip[step-1] = tmp2;
-       if(!(S->proof[step] & 1) && !((S->DB+(S->proof[step]>>INFOBITS))[1]==0))
-         break;
-     }
-  }
-
   for (step = 0; step < S->nStep; step++) {
     if (step >= begin && step < end) continue;
     long ad = S->proof[step]; long d = ad & 1;
@@ -862,6 +845,10 @@ int verify (struct solver *S, int begin, int end) {
     if (lemmas[1])
       addWatch (S, lemmas, 0), addWatch (S, lemmas, 1);
 
+    if (size == 0 && S->skip[step]) { // if conflict arises from a trusted addition
+      analyze(S, lemmas, 0);
+      goto start_verification;
+    }
     if (size == 0) { printf ("\rc conflict claimed, but not detected\n"); return SAT; }  // change to FAILED?
     if (size == 1) {
       if (S->verb) printf ("\rc found unit %i\n", lemmas[0]);
@@ -964,17 +951,20 @@ int verify (struct solver *S, int begin, int end) {
 //      if ((skipped % 100) == 0) printf("c skipped %i, checked %i\n", skipped, checked);
       continue; } // If not marked, continue
 
-    assert (size >= 1);
-    int *_clause = clause + size;
-    while (*_clause++) { S->nRemoved++; }
-    clause[size] = 0;
+    if (!S->skip[step]) {
+      assert (size >= 1);
+      int *_clause = clause + size;
+      while (*_clause++) { S->nRemoved++; }
+      clause[size] = 0;
 
-    if (S->verb) {
-      printf ("\rc validating clause (%i, %i):  ", clause[PIVOT], size); printClause (clause); }
+      if (S->verb) {
+        printf ("\rc validating clause (%i, %i):  ", clause[PIVOT], size); printClause (clause); }
 
-    if (!S->skip[step] && redundancyCheck (S, clause, size, 1) == FAILED) {
-      printf ("c failed at proof line %i (modulo deletion errors)\n", step + 1);
-      return SAT; }
+      if (redundancyCheck (S, clause, size, 1) == FAILED) {
+        printf ("c failed at proof line %i (modulo deletion errors)\n", step + 1);
+        return SAT; }
+    }
+
     checked++;
     S->optproofskip[S->nOpt] = S->skip[step];
     S->optproof[S->nOpt++] = ad; }

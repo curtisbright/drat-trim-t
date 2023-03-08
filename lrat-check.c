@@ -194,6 +194,7 @@ void addClause (int index, int* literals, int size, FILE* drat) {
     topAlloc = (topAlloc * 3) >> 1;
     printf ("c topTable reallocation from %i to %i\n", old, topAlloc);
     topTable = (int*) realloc (topTable, sizeof(int) * topAlloc);
+    if (!topTable) { printf ("c Memory allocation failure of topTable\n"); exit (1); }
     for (int j = old; j < topAlloc; j++) topTable[j] = -1; }
 
   int count = 0, bucket = topTable[index/BUCKET];
@@ -210,8 +211,10 @@ void addClause (int index, int* literals, int size, FILE* drat) {
     maxBucket = (maxBucket * 3) >> 1;
     printf ("c increasing the number of buckets from %i to %i\n", bucket, maxBucket);
     inBucket = (int*) realloc (inBucket, sizeof(int) * maxBucket);
+    if (!inBucket) { printf ("c Memory allocation failure of inBucket\n"); exit (1); }
     for (int j = bucket; j < maxBucket; j++) inBucket[j] = 0;
     clsList = (int*) realloc (clsList, sizeof(int) * maxBucket * BUCKET);
+    if (!clsList) { printf ("c Memory allocation failure of clsList\n"); exit (1); }
     for (int i = bucket * BUCKET; i < maxBucket * BUCKET; i++) clsList[i] = DELETED; // is this required?
   }
 
@@ -219,7 +222,9 @@ void addClause (int index, int* literals, int size, FILE* drat) {
 
   if (tableSize + size >= tableAlloc) {
     tableAlloc = (tableAlloc * 3) >> 1;
-    table = (int*) realloc (table, sizeof (int) * tableAlloc); }
+    table = (int*) realloc (table, sizeof (int) * tableAlloc);
+    if (!table) { printf ("c Memory allocation failure of table\n"); exit (1); }
+  }
 
   setClause (index, tableSize);
   for (int i = 0; i < size; i++) {
@@ -300,7 +305,9 @@ void compress (int index, int print) {
 static void addLit (int lit) {
   if (litCount >= litAlloc) {
     litAlloc = (litAlloc * 3) >> 1;
-    litList = (int*) realloc (litList, sizeof (int) * litAlloc); }
+    litList = (int*) realloc (litList, sizeof (int) * litAlloc);
+    if (!litList) { printf ("c Memory allocation failure of litList\n"); exit (1); }
+  }
   litList[litCount++] = lit; }
 
 int parseLine (FILE* file, int mode, int line) {
@@ -378,12 +385,14 @@ int main (int argc, char** argv) {
       exit(1); }
 
   for (;;) {
-    fscanf (cnf, " p cnf %i %i ", &nVar, &nCls);
-    if (nVar > 0) break;
+    int tmp = fscanf (cnf, " p cnf %i %i ", &nVar, &nCls);
+    if (tmp == 2) break;
     fgets (ignore, sizeof (ignore), cnf);
     int j; for (j = 0; j < 1024; j++) { if (ignore[j] == '\n') break; }
     if (j == 1024) {
       printf ("c ERROR: comment longer than 1024 characters: %s\n", ignore); exit (0); } }
+
+  if (nVar <= 0) nVar = 1;
 
   topAlloc = INIT;
   topTable = (int*) malloc (sizeof(int) * topAlloc);

@@ -82,7 +82,6 @@ static inline void printClause (int* clause) {
 static inline void addWatchPtr (struct solver* S, int lit, long watch) {
   if (S->used[lit] + 1 == S->max[lit]) { S->max[lit] *= 1.5;
     S->wlist[lit] = (long *) realloc (S->wlist[lit], sizeof (long) * S->max[lit]);
-//    if (S->max[lit] > 1000) printf("c watchlist %i increased to %i\n", lit, S->max[lit]);
     if (S->wlist[lit] == NULL) { printf("c MEMOUT: reallocation failed for watch list of %i\n", lit); exit (0); } }
   S->wlist[lit][ S->used[lit]++ ] = watch | S->mask;
   S->wlist[lit][ S->used[lit]   ] = END; }
@@ -107,7 +106,9 @@ static inline void addUnit (struct solver* S, long index) {
 //  printf("c adding unit %i\n", S->DB[index]);
   if (S->unitSize >= S->unitStackSize) {
     S->unitStackSize = (S->unitStackSize * 3) >> 1;
-    S->unitStack = (long*) realloc (S->unitStack, sizeof(long) * S->unitStackSize); }
+    S->unitStack = (long*) realloc (S->unitStack, sizeof(long) * S->unitStackSize);
+    if (S->unitStack == NULL) {
+      printf ("c failed to reallocate unit stack\n"); exit (0); } }
   S->unitStack[S->unitSize++] = index; }
 
 static inline void removeUnit (struct solver* S, int lit) {
@@ -454,7 +455,9 @@ void postprocess (struct solver *S) {
 void lratAdd (struct solver *S, int elem) {
   if (S->lratSize == S->lratAlloc) {
     S->lratAlloc = S->lratAlloc * 3 >> 1;
-    S->lratTable = (int *) realloc (S->lratTable, sizeof (int) * S->lratAlloc); }
+    S->lratTable = (int *) realloc (S->lratTable, sizeof (int) * S->lratAlloc);
+    if (S->lratTable == NULL) {
+      printf ("c MEMOUT: failed to reallocate lrat table\n"); exit (0); } }
   S->lratTable[S->lratSize++] = elem; }
 
 void printDependenciesFile (struct solver *S, int* clause, int RATflag, int mode) {
@@ -1122,7 +1125,7 @@ int parse (struct solver* S) {
 
     if (size == 0) {
       if (fileSwitchFlag) { // read for proof
-        if (S->binMode) {
+        if (S->binMode == 1) {
           int res = getc_unlocked (S->proofFile);
           if      (res == EOF) break;
           else if (res ==  97) del = 0;
@@ -1144,7 +1147,7 @@ int parse (struct solver* S) {
     if (!lit) {
       if (!fileSwitchFlag) tmp = fscanf (S->inputFile, " %i ", &lit);  // Read a literal.
       else {
-        if (S->binMode) {
+        if (S->binMode == 1) {
           tmp = read_lit (S, &lit); }
         else {
           tmp = fscanf (S->proofFile, " %i ", &lit); } }
@@ -1156,7 +1159,7 @@ int parse (struct solver* S) {
         fileLine = 0;
         fileSwitchFlag = 1; } }
 
-    if (tmp == 0) {
+    if (!tmp && !S->binMode) {
       char ignore[1<<16];
       if (!fileSwitchFlag) { if (fgets (ignore, sizeof (ignore), S->inputFile) == NULL) printf ("c\n"); }
       else                   if (fgets (ignore, sizeof (ignore), S->proofFile) == NULL) printf ("c\n");
@@ -1182,7 +1185,7 @@ int parse (struct solver* S) {
       for (i = 0; i < size; ++i) {
         if (buffer[i] == buffer[i+1]) {
           if (S->warning != NOWARNING) {
-            printf ("\rc WARNING: detected and deleted duplicate literal %i at position %i of line %i\n", buffer[i+1], i+1, fileLine); }
+            printf ("\rc WARNING: detected and deleted duplicate literal %i at position %i of proof line %i\n", buffer[i+1], i+1, fileLine); }
           if (S->warning == HARDWARNING) exit (HARDWARNING); }
         else { buffer[j++] = buffer[i]; } }
       buffer[j] = 0; size = j;
@@ -1203,7 +1206,7 @@ int parse (struct solver* S) {
             match = matchClause (S, hashTable[hash], hashUsed[hash], buffer, size);
             if (match == 0) {
               if (S->warning != NOWARNING) {
-                printf ("\rc WARNING: deleted clause on line %i does not occur: ", fileLine); printClause (buffer); }
+                printf ("\rc WARNING: deleted clause on proof line %i does not occur: ", fileLine); printClause (buffer); }
               if (S->warning == HARDWARNING) exit (HARDWARNING);
               goto end_delete; }
             if (S->mode == FORWARD_SAT) S->DB[ match - 2 ] = rem;
@@ -1245,7 +1248,7 @@ int parse (struct solver* S) {
           S->proof = (long*) realloc (S->proof, sizeof (long) * S->nAlloc);
           S->skip = (int*) realloc (S->skip, sizeof (int) * S->nAlloc);
 //        printf ("c proof allocation increased to %li\n", S->nAlloc);
-        if (S->proof == NULL) { printf("c MEMOUT: reallocation of proof list failed\n"); exit (0); } }
+          if (S->proof == NULL) { printf("c MEMOUT: reallocation of proof list failed\n"); exit (0); } }
         S->proof[S->nStep++] = (((long) (clause - S->DB)) << INFOBITS); }
 
       if (nZeros <= 0) S->nLemmas++;
@@ -1255,7 +1258,9 @@ int parse (struct solver* S) {
    else {
      buffer[size++] = lit;                                // Add literal to buffer
      if (size == bufferAlloc) { bufferAlloc = (bufferAlloc * 3) >> 1;
-       buffer = (int*) realloc (buffer, sizeof (int) * bufferAlloc); } } }
+       buffer = (int*) realloc (buffer, sizeof (int) * bufferAlloc);
+       if (buffer == NULL) {
+        printf ("c MEMOUT: failed to reallocate buffer\n"); exit (0); } } } }
 
   if (S->mode == FORWARD_SAT && active) {
     if (S->warning != NOWARNING)
@@ -1272,9 +1277,10 @@ int parse (struct solver* S) {
           S->skip = (int*) realloc (S->skip, sizeof (int) * S->nAlloc);
 //          printf ("c proof allocation increased to %li\n", S->nAlloc);
           if (S->proof == NULL) { printf("c MEMOUT: reallocation of proof list failed\n"); exit (0); } }
-        S->proof[S->nStep++] = (((int) (clause - S->DB)) << INFOBITS) + 1; } } }
+        S->proof[S->nStep++] = (((long) (clause - S->DB)) << INFOBITS) + 1; } } }
 
   S->DB = (int *) realloc (S->DB, S->mem_used * sizeof (int));
+  if (S->DB == NULL) { printf("c MEMOUT: reallocation of DB failed\n"); exit (0); }
 
   for (i = 0; i < BIGINIT; i++) free (hashTable[i]);
   free (hashTable);
@@ -1369,6 +1375,7 @@ void printHelp ( ) {
   printf ("  -O          optimize proof till fixpoint by repeating verification\n");
   printf ("  -C          compress core lemmas (emit binary proof)\n");
   printf ("  -D          delete proof file after parsing\n");
+  printf ("  -I          force ASCII proof parse mode\n");
   printf ("  -i          force binary proof parse mode\n");
   printf ("  -w          suppress warning messages\n");
   printf ("  -W          exit after first warning\n");
@@ -1424,6 +1431,7 @@ int main (int argc, char** argv) {
       else if (argv[i][1] == 'C') S.binOutput  = 1;
       else if (argv[i][1] == 'D') S.delProof   = 1;
       else if (argv[i][1] == 'i') S.binMode    = 1;
+      else if (argv[i][1] == 'I') S.binMode    = -1;
       else if (argv[i][1] == 'u') S.mask       = 1;
       else if (argv[i][1] == 'v') S.verb       = 1;
       else if (argv[i][1] == 'w') S.warning    = NOWARNING;
@@ -1468,6 +1476,7 @@ int main (int argc, char** argv) {
               printf ("\rc turning on binary mode checking\n");
               S.binMode = 1; break; } } }
         fclose (S.proofFile);
+        if (S.binMode == -1) S.binMode = 0;
         S.proofFile = fopen (argv[2], "r");
         if (S.proofFile == NULL) {
           printf ("\rc error opening \"%s\".\n", argv[i]); return ERROR; } } } }

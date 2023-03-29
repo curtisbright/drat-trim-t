@@ -23,6 +23,7 @@ OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWA
 
 #define ADD	-48
 #define DEL	50
+#define TRUST 58
 #define MODE	1	// DRAT: MODE=1; LRAT: MODE=2
 
 #ifdef LONGTYPE
@@ -58,7 +59,8 @@ int main (int argc, char** argv) {
 
   while (1) {
     read_lit (input, &lit);
-    if (lit == ADD) {
+    if (lit == TRUST) { printf ("t "); }
+    if (lit == ADD || lit == TRUST) {
       int zeros = 0;
       read_lit (input, &lit);
       index = lit;

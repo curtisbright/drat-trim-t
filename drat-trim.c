@@ -321,7 +321,7 @@ void printProof (struct solver *S) {
       S->nAlloc = S->nOpt;
       S->proof = (long*) realloc (S->proof, sizeof (long) * S->nAlloc);
       S->skip = (int*) realloc (S->skip, sizeof (int) * S->nAlloc);
-      if (S->proof == NULL) { printf("c MEMOUT: reallocation of proof list failed\n"); exit (0); } }
+      if (S->proof == NULL || S->skip == NULL) { printf("c MEMOUT: reallocation of proof list or skip list failed\n"); exit (0); } }
     S->nStep   = 0;
     S->nLemmas = 0;
     for (step = S->nOpt - 1; step >= 0; step--) {
@@ -1229,7 +1229,7 @@ int parse (struct solver* S) {
               S->proof = (long*) realloc (S->proof, sizeof (long) * S->nAlloc);
               S->skip = (int*) realloc (S->skip, sizeof (int) * S->nAlloc);
 //              printf ("c proof allocation increased to %li\n", S->nAlloc);
-              if (S->proof == NULL) { printf("c MEMOUT: reallocation of proof list failed\n"); exit (0); } }
+              if (S->proof == NULL || S->skip == NULL) { printf("c MEMOUT: reallocation of proof list or skip list failed\n"); exit (0); } }
             S->proof[S->nStep++] = (match << INFOBITS) + 1; }
         end_delete:;
         if (del) { del = 0; size = 0; continue; } }
@@ -1261,7 +1261,7 @@ int parse (struct solver* S) {
           S->proof = (long*) realloc (S->proof, sizeof (long) * S->nAlloc);
           S->skip = (int*) realloc (S->skip, sizeof (int) * S->nAlloc);
 //        printf ("c proof allocation increased to %li\n", S->nAlloc);
-          if (S->proof == NULL) { printf("c MEMOUT: reallocation of proof list failed\n"); exit (0); } }
+          if (S->proof == NULL || S->skip == NULL) { printf("c MEMOUT: reallocation of proof list or skip list failed\n"); exit (0); } }
         S->proof[S->nStep++] = (((long) (clause - S->DB)) << INFOBITS); }
 
       if (nZeros <= 0) S->nLemmas++;
@@ -1289,7 +1289,7 @@ int parse (struct solver* S) {
           S->proof = (long*) realloc (S->proof, sizeof (long) * S->nAlloc);
           S->skip = (int*) realloc (S->skip, sizeof (int) * S->nAlloc);
 //          printf ("c proof allocation increased to %li\n", S->nAlloc);
-          if (S->proof == NULL) { printf("c MEMOUT: reallocation of proof list failed\n"); exit (0); } }
+          if (S->proof == NULL || S->skip == NULL) { printf("c MEMOUT: reallocation of proof list or skip list failed\n"); exit (0); } }
         S->proof[S->nStep++] = (((long) (clause - S->DB)) << INFOBITS) + 1; } } }
 
   S->DB = (int *) realloc (S->DB, S->mem_used * sizeof (int));

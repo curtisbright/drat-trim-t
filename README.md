@@ -5,6 +5,10 @@ trusted clauses. During proof verification, clauses in the DRAT proof with
 a `t` prefix will be treated as addition of a trusted clause. The clause
 will not be checked if it preserves satisfiability, and therefore may not.
 
+The original paper in which we used this extension of the DRAT format is
+[Nonexistence Certificates for Ovals in a Projective Plane of Order Ten](https://doi.org/10.1007/978-3-030-48966-3_8)
+at IWOCA 2020.
+
 -Curtis Bright
 
 # The DRAT format and DRAT-trim checker

@@ -1,3 +1,12 @@
+# The DRAT-trim-t extension of the DRAT-trim checker
+
+This repository hosts a version of the DRAT-trim checker with support for
+trusted clauses. During proof verification, clauses in the DRAT proof with
+a `t` prefix will be treated as addition of a trusted clause. The clause
+will not be checked if it preserves satisfiability, and therefore may not.
+
+-Curtis Bright
+
 # The DRAT format and DRAT-trim checker
 
 The proof checker DRAT-trim can be used to check whether a

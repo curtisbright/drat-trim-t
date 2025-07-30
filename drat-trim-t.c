@@ -1,7 +1,7 @@
-/************************************************************************************[drat-trim.c]
+/**********************************************************************************[drat-trim-t.c]
 Copyright (c) 2014 Marijn Heule and Nathan Wetzler, The University of Texas at Austin.
 Copyright (c) 2015-2020 Marijn Heule, Carnegie Mellon University
-Last edit: September 11, 2020
+Copyright (c) 2025 Curtis Bright, University of Windsor
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
 associated documentation files (the "Software"), to deal in the Software without restriction,
@@ -1372,7 +1372,7 @@ int onlyDelete (struct solver* S, int begin, int end) {
   return 1; }
 
 void printHelp ( ) {
-  printf ("usage: drat-trim [INPUT] [<PROOF>] [<option> ...]\n\n");
+  printf ("usage: drat-trim-t [INPUT] [<PROOF>] [<option> ...]\n\n");
   printf ("where <option> is one of the following\n\n");
   printf ("  -h          print this command line option summary\n");
   printf ("  -c CORE     prints the unsatisfiable core to the file CORE (DIMACS format)\n");

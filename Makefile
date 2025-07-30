@@ -1,9 +1,9 @@
 FLAGS = -DLONGTYPE
 
-all: drat-trim lrat-check compress decompress gapless
+all: drat-trim-t lrat-check compress decompress gapless
 
-drat-trim: drat-trim.c
-	gcc drat-trim.c -std=c99 -O2 -o drat-trim
+drat-trim-t: drat-trim-t.c
+	gcc drat-trim-t.c -std=c99 -O2 -o drat-trim-t
 
 lrat-check: lrat-check.c
 	gcc lrat-check.c -std=c99 $(FLAGS) -O2 -o lrat-check
@@ -18,4 +18,4 @@ gapless: gapless.c
 	gcc gapless.c -std=c99 -O2 -o gapless
 
 clean:
-	rm drat-trim lrat-check compress decompress gapless
+	rm drat-trim-t lrat-check compress decompress gapless

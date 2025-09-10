@@ -3,7 +3,7 @@ FLAGS = -DLONGTYPE
 all: drat-trim-t lrat-check compress decompress gapless
 
 drat-trim-t: drat-trim-t.c
-	gcc drat-trim-t.c -std=c99 -O2 -o drat-trim-t
+	gcc drat-trim-t.c -D_GNU_SOURCE -std=c99 -O3 -o drat-trim-t
 
 lrat-check: lrat-check.c
 	gcc lrat-check.c -std=c99 $(FLAGS) -O2 -o lrat-check
